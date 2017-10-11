@@ -17,7 +17,7 @@ import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 /**
- * Sample program showing embedded AWS credentials to fetch data from S3 bucket.
+ * Sample program showing embedded AWS credentials to store/fetch data to/from S3 bucket.
  * 
  * @author Satish Pandey
  *
@@ -38,8 +38,8 @@ public class SparkS3EmbeddedCredentials {
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		// AWS credentials configuration
 		Configuration configuration = sc.hadoopConfiguration();
-		configuration.set("fs.s3a.access.key", "<AWS-ACCESS-KEY>");
-		configuration.set("fs.s3a.secret.key", "<AWS-SECRET-KEY>");
+		configuration.set("fs.s3a.access.key", "AKIAJXF2SDVPET2NVHPA");
+		configuration.set("fs.s3a.secret.key", "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");
 		// Fetching input data from S3 bucket
 		JavaRDD<String> s3InputRDD = sc.textFile(s3InputFile);
 		logger.info(String.format("Total number of lines to process: %d", s3InputRDD.count()));
