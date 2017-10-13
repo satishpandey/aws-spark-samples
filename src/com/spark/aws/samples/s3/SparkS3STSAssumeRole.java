@@ -50,17 +50,13 @@ public class SparkS3STSAssumeRole {
 		Configuration configuration = sc.hadoopConfiguration();
 		logger.trace("Loading STS Temporary credentials....");
 		String roleSessionName = EC2MetadataUtils.getInstanceId() + "Session";
-		String roleArnRead = String.format(roleArnTemplate, "S3ReadOnlyCredentialsSession");
 		InstanceProfileCredentialsProvider credentialsProvider = new InstanceProfileCredentialsProvider(true);
 		AWSSecurityTokenService sts = AWSSecurityTokenServiceClientBuilder.standard()
 				.withCredentials(credentialsProvider).build();
-		STSAssumeRoleSessionCredentialsProvider provider = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArnRead,
-				roleSessionName).withStsClient(sts).build();
-		configuration.set("fs.s3a.access.key", provider.getCredentials().getAWSAccessKeyId());
-		configuration.set("fs.s3a.secret.key", provider.getCredentials().getAWSSecretKey());
-		configuration.set("fs.s3a.session.token", provider.getCredentials().getSessionToken());
 		configuration
 				.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider");
+		String roleArnRead = String.format(roleArnTemplate, "S3ReadOnlyRole");
+		configureKeySecret(configuration, sts, roleArnRead, roleSessionName);
 		logger.trace("Fetching input data from S3 bucket");
 		JavaRDD<String> s3InputRDD = sc.textFile(s3InputFile);
 		logger.info(String.format("Total number of lines to process: %d", s3InputRDD.count()));
@@ -89,16 +85,22 @@ public class SparkS3STSAssumeRole {
 			}
 		});
 		logger.info(String.format("Total unique words : %d", wordsCount.count()));
-		String roleArnWrite = String.format(roleArnTemplate, "S3FullAccessCredentials");
-		STSAssumeRoleSessionCredentialsProvider provider2 = new STSAssumeRoleSessionCredentialsProvider.Builder(roleArnWrite,
-				roleSessionName).withStsClient(sts).build();
-		configuration.set("fs.s3a.access.key", provider2.getCredentials().getAWSAccessKeyId());
-		configuration.set("fs.s3a.secret.key", provider2.getCredentials().getAWSSecretKey());
-		configuration.set("fs.s3a.session.token", provider2.getCredentials().getSessionToken());
+		String roleArnWrite = String.format(roleArnTemplate, "S3FullAccessRole");
+		configureKeySecret(configuration, sts, roleArnWrite, roleSessionName);
 		logger.trace("Storing output data back to S3 bucket");
 		wordsCount.saveAsTextFile(s3OutputFile);
 		logger.debug(String.format("Exiting %s application....", APPLICATION_NAME));
 		sc.close();
 		System.exit(0);
-	}	
+	}
+
+	private static void configureKeySecret(Configuration configuration, AWSSecurityTokenService sts, String roleArn,
+			String roleSessionName) {
+		STSAssumeRoleSessionCredentialsProvider provider2 = new STSAssumeRoleSessionCredentialsProvider.Builder(
+				roleArn, roleSessionName).withStsClient(sts).build();
+		configuration.set("fs.s3a.access.key", provider2.getCredentials().getAWSAccessKeyId());
+		configuration.set("fs.s3a.secret.key", provider2.getCredentials().getAWSSecretKey());
+		configuration.set("fs.s3a.session.token", provider2.getCredentials().getSessionToken());
+	}
+
 }

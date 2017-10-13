@@ -44,12 +44,9 @@ public class SparkS3InstanceProfile {
 		Configuration configuration = sc.hadoopConfiguration();
 		logger.trace("Loading Instance profile credentials from Instance MetaData....");
 		InstanceProfileCredentialsProvider credentialsProvider = new InstanceProfileCredentialsProvider(true);
-		BasicSessionCredentials credentials = (BasicSessionCredentials) credentialsProvider.getCredentials();
-		configuration.set("fs.s3a.access.key", credentials.getAWSAccessKeyId());
-		configuration.set("fs.s3a.secret.key", credentials.getAWSSecretKey());
-		configuration.set("fs.s3a.session.token", credentials.getSessionToken());
 		configuration
 				.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider");
+		BasicSessionCredentials credentials = configureKeySecret(configuration, credentialsProvider);
 		logger.trace("Fetching input data from S3 bucket");
 		JavaRDD<String> s3InputRDD = sc.textFile(s3InputFile);
 		logger.info(String.format("Total number of lines to process: %d", s3InputRDD.count()));
@@ -79,9 +76,21 @@ public class SparkS3InstanceProfile {
 		});
 		logger.info(String.format("Total unique words : %d", wordsCount.count()));
 		logger.trace("Storing output data back to S3 bucket");
+		if (credentialsProvider.getCredentials().getAWSAccessKeyId().equals(credentials.getAWSAccessKeyId())) {
+			configureKeySecret(configuration, credentialsProvider);
+		}
 		wordsCount.saveAsTextFile(s3OutputFile);
 		logger.debug(String.format("Exiting %s application....", APPLICATION_NAME));
 		sc.close();
 		System.exit(0);
+	}
+
+	private static BasicSessionCredentials configureKeySecret(Configuration configuration,
+			InstanceProfileCredentialsProvider credentialsProvider) {
+		BasicSessionCredentials credentials = (BasicSessionCredentials) credentialsProvider.getCredentials();
+		configuration.set("fs.s3a.access.key", credentials.getAWSAccessKeyId());
+		configuration.set("fs.s3a.secret.key", credentials.getAWSSecretKey());
+		configuration.set("fs.s3a.session.token", credentials.getSessionToken());
+		return credentials;
 	}
 }
